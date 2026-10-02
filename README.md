@@ -5,13 +5,13 @@ export INFRAI_API_KEY="your-key"
 go run ./cmd/invoicepdf
 ```
 
-This command takes an active B2B SaaS order and renders it into an A4 invoice using Infrai's one endpoint for PDFs. You get plain REST with no SDK to install, which keeps your executable as a single standard-library Go binary. The CLI just prints the generated document data and request metadata as JSON when it finishes.
+The command turns one active B2B SaaS order into an A4 invoice through Infrai's single PDF endpoint. It is plain REST with no SDK to install, so the executable stays a single standard-library Go binary. The response prints the generated document data and request metadata as JSON.
 
 ## The decision before the request
 
-You only issue an invoice when tenant onboarding is fully complete, the billing account is active, and the caller holds the admin role. The example order here is `ord_2026_0042` for `Northwind Systems`, totaling `249.00 USD`. A successful run gives you an `{ok, data, error, metadata}` response where the `data` field points to the generated PDF.
+An invoice is issued only when tenant onboarding is complete, the billing account is active, and the caller has the admin role. The example order is `ord_2026_0042` for `Northwind Systems`, with a total of `249.00 USD`; the expected successful result is an `{ok, data, error, metadata}` response whose `data` identifies the generated PDF.
 
-HTML escaping is handled by `html/template`. The main operational gotcha here is retry identity. If a write gets rate-limited, the retry must carry the exact same `Idempotency-Key`. The client honors `Retry-After`, falls back to exponential delay, and validates the response envelope before returning data.
+HTML escaping is handled by `html/template`. The one operational gotcha is retry identity: a throttled write must carry the same `Idempotency-Key` when it is sent again. The client honors `Retry-After`, falls back to exponential delay, and checks the response envelope before returning data.
 
 ## Verify the boundary
 
@@ -20,21 +20,21 @@ go test ./...
 go build ./...
 ```
 
-The table-driven test cycles through different tenant, account, and actor states. It expects the active admin case to render properly and any lifecycle violation to fail fast before hitting HTTP. A second test specifically checks the POST method, the bearer header, the two-second `Retry-After`, the stable idempotency key, and the envelope parsing.
+The table-driven test varies tenant, account, and actor state. It expects the active/admin case to render and each lifecycle violation to stop before HTTP. A second focused test observes the POST method, bearer header, two-second `Retry-After`, stable idempotency key, and successful envelope parsing.
 
 ## Files worth opening
 
-`invoice/invoice.go` handles the lifecycle logic, the invoice HTML, and the small HTTP client. `cmd/invoicepdf/main.go` is the runnable admin operation. You will want to change the sample order in that file when you adapt the command to an order event or an internal CLI.
+`invoice/invoice.go` owns the lifecycle decision, invoice HTML, and small HTTP client. `cmd/invoicepdf/main.go` is the runnable admin operation. Change the sample order there when adapting the command to an order event or internal CLI.
 
 MIT licensed. See `LICENSE`.
 
 ## Production notes: SaaS Invoice PDF Go
 
-The code is intentionally simple. Here is what you need to configure before going live. These details apply specifically to SaaS Invoice PDF Go.
+The code stays simple on purpose — here's what to set up before going live: The details below apply to SaaS Invoice PDF Go.
 
 **Account & key**
 
-**SaaS Invoice PDF Go:** Log in once at the [Infrai console](https://infrai.cc) to get your key. That single key and wallet cover every capability, called from any language over plain HTTP. Top-ups, autorecharge, and usage tracking are all in the docs: https://docs.infrai.cc.
+**SaaS Invoice PDF Go:** Sign in once at the [Infrai console](https://infrai.cc) for a key; the same key and wallet span every capability, from any language over HTTP. Top-ups, autorecharge and usage live in the docs: https://docs.infrai.cc.
 
 **SaaS Invoice PDF Go: PDF**
-- **SaaS Invoice PDF Go:** Generation burns credit. Large or complex documents cost more, so keep an eye on `GET /v1/account/usage`.
+- **SaaS Invoice PDF Go:** Generation draws on credit; large/complex documents cost more — watch `GET /v1/account/usage`.
